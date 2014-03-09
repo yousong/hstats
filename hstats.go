@@ -42,9 +42,15 @@ func ping(reqch chan string, respch chan *HostStat) {
 		cmd.Args = append(pingArgs, host)
 		if out, err := cmd.Output(); err == nil {
 			m := reStat.FindStringSubmatch(string(out))
-			stat.min, _ = strconv.ParseFloat(m[1], 32)
-			stat.avg, _ = strconv.ParseFloat(m[2], 32)
-			stat.max, _ = strconv.ParseFloat(m[3], 32)
+			if runtime.GOOS == "linux" {
+					stat.min, _ = strconv.ParseFloat(m[1], 32)
+					stat.avg, _ = strconv.ParseFloat(m[2], 32)
+					stat.max, _ = strconv.ParseFloat(m[3], 32)
+			} else if runtime.GOOS == "windows" {
+					stat.min, _ = strconv.ParseFloat(m[1], 32)
+					stat.avg, _ = strconv.ParseFloat(m[3], 32)
+					stat.max, _ = strconv.ParseFloat(m[2], 32)
+			}
 		} else {
 			stat.min = 10000
 			stat.avg = 10000
