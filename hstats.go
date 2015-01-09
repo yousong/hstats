@@ -1,16 +1,16 @@
 package main
 
 import (
+	"flag"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"os/exec"
-	"flag"
 	"regexp"
 	"runtime"
-	"strconv"
 	"sort"
+	"strconv"
 	"text/tabwriter"
-	"io/ioutil"
 )
 
 type HostStat struct {
@@ -42,14 +42,14 @@ func ping(reqch chan string, respch chan *HostStat) {
 		cmd.Args = append(pingArgs, host)
 		if out, err := cmd.Output(); err == nil {
 			m := reStat.FindStringSubmatch(string(out))
-			if runtime.GOOS == "linux" {
-					stat.min, _ = strconv.ParseFloat(m[1], 32)
-					stat.avg, _ = strconv.ParseFloat(m[2], 32)
-					stat.max, _ = strconv.ParseFloat(m[3], 32)
+			if runtime.GOOS == "linux" || runtime.GOOS == "darwin" {
+				stat.min, _ = strconv.ParseFloat(m[1], 32)
+				stat.avg, _ = strconv.ParseFloat(m[2], 32)
+				stat.max, _ = strconv.ParseFloat(m[3], 32)
 			} else if runtime.GOOS == "windows" {
-					stat.min, _ = strconv.ParseFloat(m[1], 32)
-					stat.avg, _ = strconv.ParseFloat(m[3], 32)
-					stat.max, _ = strconv.ParseFloat(m[2], 32)
+				stat.min, _ = strconv.ParseFloat(m[1], 32)
+				stat.avg, _ = strconv.ParseFloat(m[3], 32)
+				stat.max, _ = strconv.ParseFloat(m[2], 32)
 			}
 		} else {
 			stat.min = 10000
@@ -64,6 +64,7 @@ func ping(reqch chan string, respch chan *HostStat) {
 var gonum int
 var pingcount int
 var infile string
+
 func init() {
 	flag.StringVar(&infile, "infile", "STDIN", "Input file containing one host by each line.")
 	flag.IntVar(&gonum, "gonum", 16, "Number of parallel cmd to execute.")
@@ -78,15 +79,19 @@ func main() {
 
 	// OS dependent initialization
 	if runtime.GOOS == "linux" {
-		/*
-		 *   rtt min/avg/max/mdev = 0.016/0.020/0.025/0.005 ms
-		 */
-		reStat = regexp.MustCompile("([0-9\\.]+)/([0-9\\.]+)/([0-9\\.]+)")
+		// iputils ping on GNU Linux
+		//   rtt min/avg/max/mdev = 0.016/0.020/0.025/0.005 ms
+		reStat = regexp.MustCompile("([0-9\\.]+)/([0-9\\.]+)/([0-9\\.]+) ms")
+		pingArgs = []string{"ping", "-c", strconv.Itoa(pingcount)}
+	} else if runtime.GOOS == "darwin" {
+		// default ping util on Mac OSX
+		//   round-trip min/avg/max/stddev = 6.841/7.521/8.084/0.514 ms
+		reStat = regexp.MustCompile("([0-9\\.]+)/([0-9\\.]+)/([0-9\\.]+)/([0-9\\.]+) ms")
 		pingArgs = []string{"ping", "-c", strconv.Itoa(pingcount)}
 	} else if runtime.GOOS == "windows" {
-		/*
-		 *   Minimum = 40ms, Maximum = 42ms, Average = 41ms
-		 */
+		//
+		//   Minimum = 40ms, Maximum = 42ms, Average = 41ms
+		//
 		reStat = regexp.MustCompile("Minimum = ([0-9]+)ms, Maximum = ([0-9]+)ms, Average = ([0-9]+)ms")
 		pingArgs = []string{"ping", "-n", strconv.Itoa(pingcount)}
 	} else {
@@ -141,7 +146,7 @@ func main() {
 	fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t\n", "Host", "Min", "=Avg", "Max", "Jit.")
 	for i := range stats {
 		s := stats[i]
-		fmt.Fprintf(w, "%s\t%.2f\t%.2f\t%.2f\t%.2f\t\n", s.host, s.min, s.avg, s.max, s.max - s.min)
+		fmt.Fprintf(w, "%s\t%.2f\t%.2f\t%.2f\t%.2f\t\n", s.host, s.min, s.avg, s.max, s.max-s.min)
 	}
 	w.Flush()
 }
