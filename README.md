@@ -5,19 +5,20 @@ response time for a list of remote hosts.
 
 	yousong@jumper:~/go/hstats$ ./hstats -h
 	Usage of ./hstats:
-	  -count=4: Number of echo request to send.
-	  -gonum=16: Number of parallel cmd to execute.
-	  -infile="STDIN": Input file containing one host by each line.
+	  -count int
+			Number of ping probes to send for each host (default 4)
+	  -gonum int
+			Number of parallel cmd to execute (default 16)
+	  -infile string
+			Input file containing list of hosts (default "-")
 
 ## Build and Run
 
-It can be run from source if Go was installed.
+Input is a list of hosts, addresses to ping.  They need to be separated by
+whitespaces.
 
-	go run hstats.go
-
-Or it can be run as native executable after it is built by go compiler.
-
-	go build hstats.go
+	go build .
+	./hstats.go <henet-tunnelserver.txt
 
 ## Examples
 

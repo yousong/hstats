@@ -17,27 +17,20 @@ buildhstats() {
 }
 
 gocrossloop() {
-	local goos="windows linux darwin"
-	local goarch="386 amd64 arm"
+	local osarch
+	local os arch
 
-	for os in $goos ; do
-		for arch in $goarch ; do
-			[ "$arch" = "arm" -a "$os" = "windows" ] && continue
-			[ "$arch" = "arm" -a "$os" = "darwin" ] && continue
-
-			"$@" "$os" "$arch"
-		done
+	go tool dist list | while read osarch; do
+		echo "working on $osarch"
+		os="${osarch%/*}"
+		arch="${osarch#*/}"
+		"$@" "$os" "$arch"
 	done
 }
 
 hstats() {
 	prepare
 	gocrossloop buildhstats
-}
-
-# crossing hstats needs crossing go itself first.
-crossgo() {
-	gocrossloop ./make.bash --no-clean
 }
 
 # cross, then
