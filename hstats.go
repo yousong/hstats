@@ -121,11 +121,8 @@ func (p *Pinger) parseOutput(output string) *Stat {
 }
 
 // run runs fn(ctx) n times with concurrency c
-func run(ctx context.Context, c, n int, fn func(context.Context)) {
+func run(ctx context.Context, c int, fn func(context.Context)) chan<- struct{} {
 	ch := make(chan struct{})
-	if c > n {
-		c = n
-	}
 	for i := 0; i < c; i++ {
 		go func() {
 			for {
@@ -141,8 +138,28 @@ func run(ctx context.Context, c, n int, fn func(context.Context)) {
 			}
 		}()
 	}
+	return ch
+}
+
+func runN(ctx context.Context, c, n int, fn func(context.Context)) {
+	if c > n {
+		c = n
+	}
+	ch := run(ctx, c, fn)
 	defer close(ch)
 	for i := 0; i < n; i++ {
+		select {
+		case <-ctx.Done():
+			return
+		case ch <- struct{}{}:
+		}
+	}
+}
+
+func runForever(ctx context.Context, c int, fn func(context.Context)) {
+	ch := run(ctx, c, fn)
+	defer close(ch)
+	for {
 		select {
 		case <-ctx.Done():
 			return
@@ -213,7 +230,7 @@ func main() {
 				reqch <- host
 			}
 		}()
-		go run(ctx, gonum, len(hosts), func(ctx context.Context) {
+		go runN(ctx, gonum, len(hosts), func(ctx context.Context) {
 			defer wg.Done()
 			select {
 			case h := <-reqch:
