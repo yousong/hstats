@@ -208,8 +208,6 @@ func main() {
 	}
 
 	var (
-		reqch  = make(chan string)
-		respch = make(chan *HostStat)
 		pinger *Pinger
 		hstats []*HostStat
 	)
@@ -221,11 +219,14 @@ func main() {
 		}
 	}
 	{
-		wg := &sync.WaitGroup{}
-		wg.Add(len(hosts) + 1)
-		ctx := context.Background()
+		var (
+			reqch  = make(chan string)
+			respch = make(chan *HostStat)
+			wg     = &sync.WaitGroup{}
+			ctx    = context.Background()
+		)
+		wg.Add(len(hosts))
 		go func() {
-			defer wg.Done()
 			for _, host := range hosts {
 				reqch <- host
 			}
@@ -253,15 +254,21 @@ func main() {
 				return
 			}
 		})
-		go func() {
-			for stat := range respch {
-				if stat != nil {
-					hstats = append(hstats, stat)
+		{
+			wg1 := &sync.WaitGroup{}
+			wg1.Add(1)
+			go func() {
+				defer wg1.Done()
+				for stat := range respch {
+					if stat != nil {
+						hstats = append(hstats, stat)
+					}
 				}
-			}
-		}()
-		wg.Wait()
-		close(respch)
+			}()
+			wg.Wait()
+			close(respch)
+			wg1.Wait()
+		}
 	}
 
 	sort.Slice(hstats, func(i, j int) bool {
